@@ -1,0 +1,111 @@
+---
+title: "NK_Cells_Prediction"
+author: "Kalyan Srivastava"
+date: "3/25/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+#knitr::opts_chunk$set(echo = TRUE)
+
+library(caret)
+library(skimr)
+library(mlbench)
+library(caretEnsemble)
+
+
+```
+
+## R Markdown
+
+
+```{r cars}
+library(rpart)
+library(rpart.plot)
+```
+
+## Let us import the files and do a quick visual analysis. Notice that how the dictribution is either right or lrf skewed. This is still a normal distribution except that it is skewed. This dat could still be used for predictions.
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+NKcellDF <- read.csv('/home/srivastava/Documents/NK_Cells.csv')
+
+head(NKcellDF, n=2)
+summary(NKcellDF)
+skimmed <- skim(NKcellDF)
+skimmed
+```
+```{r , echo=FALSE}
+x <- ncol(NKcellDF)
+dataset <- NKcellDF[,2:x]
+# create a list of 80% of the rows in the originaldataset we can use for
+dataset$Status <- factor(dataset$Status)
+validation_index <- createDataPartition(dataset$Status,p=0.80, list=FALSE)
+# select 20% of the data for validation
+testSet<- dataset[-validation_index,]
+# use the remaining 80% of data to training and testingthe models
+trainSet <- dataset[validation_index,]
+
+levels(factor(dataset$Status))
+```
+```{r , echo=FALSE}
+control <- trainControl(method="cv", number=10)
+metriX <- "Accuracy"
+
+set.seed(7)
+modelSvmradial <- train(Status~., data=trainSet, method="svmRadial", trControl=control)
+set.seed(7)
+modelLvq <- train(Status~., data=trainSet, method="lvq", trControl=control)
+set.seed(7)
+modelRF <- train(Status~., data=trainSet, method="rf", trControl=control)
+set.seed(7)
+modelRda <- train(Status~., data=trainSet, method="rda", trControl=control)
+set.seed(7)
+modelAda <- train(Status~., data=trainSet, method="ada", trControl=control)
+set.seed(7)
+modelLmt <- train(Status~., data=trainSet, method="LMT", trControl=control)
+set.seed(7)
+#modelLda <- train(Status~., data=dataset, method="lda", trControl=control)
+modelTree = train(Status~.,  data=trainSet, method="rpart",  trControl = trainControl(method = "cv"))
+set.seed(7)
+modelXGB <- train(Status~., data=trainSet, method = 'xgbTree', trControl=control)
+modelNNET <- train(Status~., data=trainSet, method = 'avNNet', trControl=control)
+#
+
+```
+```{r}
+results <- resamples(list(LVQ=modelLvq, RF=modelRF, SVM=modelSvmradial, RDA=modelRda, TR=modelTree, ADA=modelAda, XGB=modelXGB, NNET=modelNNET))
+
+summary(results) 
+```
+
+```{r , echo=FALSE}
+dotplot(results)
+#results$timings
+```
+```{r}
+predictions <- predict(modelLvq, testSet)
+finalMatrix <- confusionMatrix(predictions, factor(testSet$Status))
+finalMatrix
+```
+```{r}
+predictions <- predict(modelNNET, testSet)
+finalMatrix <- confusionMatrix(predictions, factor(testSet$Status))
+finalMatrix
+```
+```{r}
+predictions <- predict(modelXGB, testSet)
+finalMatrix <- confusionMatrix(predictions, factor(testSet$Status))
+finalMatrix
+```
+```{r}
+predictions <- predict(modelLvq, testSet)
+finalMatrix <- confusionMatrix(predictions, factor(testSet$Status))
+finalMatrix
+```
+```{r}
+fit <- rpart(Status~.,  data=trainSet, method="class")
+rpart.plot(fit, extra = 106)
+```
+
